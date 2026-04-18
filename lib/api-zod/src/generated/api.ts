@@ -220,6 +220,28 @@ export const UseTaskCardResponse = zod.object({
 });
 
 /**
+ * @summary Abandon current active task with a 50 AP penalty
+ */
+export const AbandonTaskResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string(),
+  teamState: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      hp: zod.number(),
+      ap: zod.number(),
+      members: zod.array(zod.string()),
+      isEliminated: zod.boolean(),
+      allianceId: zod.number().nullable(),
+      activeTaskId: zod.number().nullable(),
+      isAdmin: zod.boolean(),
+      createdAt: zod.string(),
+    })
+    .optional(),
+});
+
+/**
  * @summary Use Attack Card to attack another team
  */
 export const UseAttackCardBody = zod.object({

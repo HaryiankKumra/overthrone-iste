@@ -1240,6 +1240,87 @@ export const useUseTaskCard = <
 };
 
 /**
+ * @summary Abandon current active task with a 50 AP penalty
+ */
+export const getAbandonTaskUrl = () => {
+  return `/api/cards/task/abandon`;
+};
+
+export const abandonTask = async (
+  options?: RequestInit,
+): Promise<CardActionResult> => {
+  return customFetch<CardActionResult>(getAbandonTaskUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAbandonTaskMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof abandonTask>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof abandonTask>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["abandonTask"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof abandonTask>>,
+    void
+  > = () => {
+    return abandonTask(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AbandonTaskMutationResult = NonNullable<
+  Awaited<ReturnType<typeof abandonTask>>
+>;
+
+export type AbandonTaskMutationError = ErrorType<void>;
+
+/**
+ * @summary Abandon current active task with a 50 AP penalty
+ */
+export const useAbandonTask = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof abandonTask>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof abandonTask>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getAbandonTaskMutationOptions(options));
+};
+
+/**
  * @summary Use Attack Card to attack another team
  */
 export const getUseAttackCardUrl = () => {

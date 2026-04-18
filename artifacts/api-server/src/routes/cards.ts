@@ -388,4 +388,47 @@ router.post("/cards/suspicion", requireAuth, async (req, res): Promise<void> => 
   broadcast("mapData", null);
 });
 
+router.post("/cards/task/abandon", requireAuth, async (req, res): Promise<void> => {
+  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, req.team!.id)).limit(1);
+
+  if (!team) {
+    res.status(404).json({ success: false, message: "Team not found" });
+    return;
+  }
+
+  if (team.activeTaskId == null) {
+    res.status(400).json({ success: false, message: "You have no active task to abandon." });
+    return;
+  }
+
+  const PENALTY = 50;
+  const newAp = Math.max(0, team.ap - PENALTY);
+
+  await db.update(teamsTable).set({
+    activeTaskId: null,
+    ap: newAp,
+  }).where(eq(teamsTable.id, team.id));
+
+  await logEvent({
+    type: "task_completed",
+    fromTeamId: team.id,
+    fromTeamName: team.name,
+    description: `${team.name} abandoned their task and lost ${PENALTY} AP as penalty.`,
+  });
+
+  const [updated] = await db.select().from(teamsTable).where(eq(teamsTable.id, team.id)).limit(1);
+  const t = updated;
+
+  res.json({
+    success: true,
+    message: `Task abandoned. ${PENALTY} AP deducted as penalty. You now have ${newAp} AP.`,
+    teamState: {
+      id: t.id, name: t.name, hp: t.hp, ap: t.ap, members: t.members,
+      isEliminated: t.isEliminated, allianceId: t.allianceId ?? null,
+      activeTaskId: t.activeTaskId ?? null, isAdmin: t.isAdmin,
+      createdAt: t.createdAt.toISOString(),
+    },
+  });
+});
+
 export default router;

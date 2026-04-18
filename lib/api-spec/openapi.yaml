@@ -275,6 +275,21 @@ paths:
         "400":
           description: Bad request
 
+  /cards/task/abandon:
+    post:
+      operationId: abandonTask
+      tags: [cards]
+      summary: Abandon current active task with a 50 AP penalty
+      responses:
+        "200":
+          description: Task abandoned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardActionResult"
+        "400":
+          description: No active task
+
   /cards/attack:
     post:
       operationId: useAttackCard
