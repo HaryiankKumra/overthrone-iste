@@ -271,3 +271,10 @@ export const ListTasksDifficulty = {
   medium: "medium",
   hard: "hard",
 } as const;
+
+export type GetPendingAllianceRequests200Item = {
+  id: number;
+  fromTeamId: number;
+  fromTeamName: string;
+  createdAt: string;
+};

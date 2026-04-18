@@ -332,6 +332,29 @@ paths:
         "400":
           description: Bad request
 
+  /cards/alliance/pending:
+    get:
+      operationId: getPendingAllianceRequests
+      tags: [cards]
+      summary: Get pending alliance requests for current team
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of pending requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, fromTeamId, fromTeamName, createdAt]
+                  properties:
+                    id: { type: integer }
+                    fromTeamId: { type: integer }
+                    fromTeamName: { type: string }
+                    createdAt: { type: string }
+
   /cards/alliance/respond:
     post:
       operationId: respondToAlliance

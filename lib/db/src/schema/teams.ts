@@ -15,6 +15,8 @@ export const teamsTable = pgTable("teams", {
   activeTaskId: integer("active_task_id"),
   tasksCompleted: integer("tasks_completed").notNull().default(0),
   attacksMade: integer("attacks_made").notNull().default(0),
+  completedTaskIds: integer("completed_task_ids").array().notNull().default([]),
+  lastCompletedTaskAp: integer("last_completed_task_ap").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

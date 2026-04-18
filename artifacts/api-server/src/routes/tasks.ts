@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { IRouter } from "express";
-import { db, tasksTable, teamsTable } from "@workspace/db";
+import { db, tasksTable, teamsTable, alliancesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { GetTaskParams, SubmitTaskAnswerParams, SubmitTaskAnswerBody, ListTasksQueryParams } from "@workspace/api-zod";
@@ -9,7 +9,7 @@ import { logEvent } from "../lib/gameEvents";
 
 const router: IRouter = Router();
 
-function formatTask(task: typeof tasksTable.$inferSelect, hideAnswer = true) {
+function formatTask(task: typeof tasksTable.$inferSelect, hideAnswer = true, completedByTeam = false) {
   return {
     id: task.id,
     title: task.title,
@@ -19,27 +19,32 @@ function formatTask(task: typeof tasksTable.$inferSelect, hideAnswer = true) {
     apReward: task.apReward,
     content: task.content,
     isActive: task.isActive,
+    completedByTeam,
     ...(hideAnswer ? {} : { answer: task.answer }),
   };
 }
 
 router.get("/tasks", async (req, res): Promise<void> => {
   const queryParams = ListTasksQueryParams.safeParse(req.query);
+
+  let completedIds: number[] = [];
+  if ((req as any).team?.id) {
+    const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, (req as any).team.id)).limit(1);
+    completedIds = team?.completedTaskIds ?? [];
+  }
+
   let query = db.select().from(tasksTable).$dynamic();
 
   if (queryParams.success && queryParams.data.difficulty) {
     query = db.select().from(tasksTable).where(
-      and(
-        eq(tasksTable.isActive, true),
-        eq(tasksTable.difficulty, queryParams.data.difficulty)
-      )
+      and(eq(tasksTable.isActive, true), eq(tasksTable.difficulty, queryParams.data.difficulty))
     ).$dynamic();
   } else {
     query = db.select().from(tasksTable).where(eq(tasksTable.isActive, true)).$dynamic();
   }
 
   const tasks = await query;
-  res.json(tasks.map((t) => formatTask(t)));
+  res.json(tasks.map(t => formatTask(t, true, completedIds.includes(t.id))));
 });
 
 router.get("/tasks/:id", async (req, res): Promise<void> => {
@@ -84,33 +89,165 @@ router.post("/tasks/:id/submit", requireAuth, async (req, res): Promise<void> =>
   }
 
   if (team.activeTaskId !== task.id) {
-    res.status(400).json({ error: "This task is not your active task. Use the Task Card first." });
+    res.status(400).json({ error: "This task is not your active task. Use the Task Card first.", correct: false, apEarned: 0, message: "This task is not your active task." });
     return;
   }
 
   const correct = body.data.answer.trim().toLowerCase() === task.answer.trim().toLowerCase();
 
-  if (correct) {
-    const apEarned = task.apReward;
-    await db.update(teamsTable).set({
-      ap: team.ap + apEarned,
-      activeTaskId: null,
-      tasksCompleted: team.tasksCompleted + 1,
-    }).where(eq(teamsTable.id, team.id));
-
-    await logEvent({
-      type: "task_completed",
-      fromTeamId: team.id,
-      fromTeamName: team.name,
-      description: `${team.name} completed "${task.title}" (${task.difficulty}) and earned ${apEarned} AP!`,
-    });
-
-    broadcast("teamUpdate", { teamId: team.id });
-
-    res.json({ correct: true, apEarned, message: `Correct! You earned ${apEarned} AP.` });
-  } else {
+  if (!correct) {
     res.json({ correct: false, apEarned: 0, message: "Wrong answer. Keep trying." });
+    return;
   }
+
+  const apEarned = task.apReward;
+  const newCompletedIds = [...(team.completedTaskIds ?? []), task.id];
+
+  await db.update(teamsTable).set({
+    ap: team.ap + apEarned,
+    activeTaskId: null,
+    tasksCompleted: team.tasksCompleted + 1,
+    completedTaskIds: newCompletedIds,
+    lastCompletedTaskAp: apEarned,
+  }).where(eq(teamsTable.id, team.id));
+
+  await logEvent({
+    type: "task_completed",
+    fromTeamId: team.id,
+    fromTeamName: team.name,
+    description: `${team.name} completed "${task.title}" (${task.difficulty}) and earned ${apEarned} AP!`,
+  });
+
+  broadcast("teamUpdate", { teamId: team.id });
+
+  // Check if this was a backstab task completion
+  if (team.allianceId != null) {
+    const [alliance] = await db.select().from(alliancesTable).where(
+      and(eq(alliancesTable.id, team.allianceId), eq(alliancesTable.isActive, true))
+    ).limit(1);
+
+    if (alliance && alliance.backstabInProgress && alliance.backstabInitiatorId === team.id) {
+      const allyId = alliance.team1Id === team.id ? alliance.team2Id : alliance.team1Id;
+      const [ally] = await db.select().from(teamsTable).where(eq(teamsTable.id, allyId)).limit(1);
+
+      if (ally) {
+        const bonusAp = alliance.backstabBonusAp;
+
+        if (!alliance.suspicionInProgress) {
+          // Backstab succeeds — steal ally's bonus AP
+          const allyNewAp = Math.max(0, ally.ap - bonusAp);
+          const backstabberNewAp = team.ap + apEarned + bonusAp;
+
+          await db.update(teamsTable).set({
+            ap: backstabberNewAp,
+            allianceId: null,
+          }).where(eq(teamsTable.id, team.id));
+
+          await db.update(teamsTable).set({
+            ap: allyNewAp,
+            allianceId: null,
+          }).where(eq(teamsTable.id, allyId));
+
+          await db.update(alliancesTable).set({
+            isActive: false,
+            backstabbedBy: team.id,
+            backstabInProgress: false,
+            dissolvedAt: new Date(),
+          }).where(eq(alliancesTable.id, alliance.id));
+
+          await logEvent({
+            type: "backstab",
+            fromTeamId: team.id,
+            fromTeamName: team.name,
+            toTeamId: allyId,
+            toTeamName: ally.name,
+            description: `BETRAYAL! ${team.name} has backstabbed ${ally.name}! They stole ${bonusAp} bonus AP and shattered the alliance!`,
+          });
+
+          broadcast("leaderboard", null);
+          broadcast("mapData", null);
+
+          res.json({
+            correct: true,
+            apEarned: apEarned + bonusAp,
+            message: `Correct! Earned ${apEarned} AP + stole ${bonusAp} bonus AP from your ally. Alliance broken!`,
+          });
+          return;
+        } else {
+          // Ally suspected in time — backstab fails, no bonus AP but still earn task AP
+          await db.update(alliancesTable).set({
+            backstabInProgress: false,
+            backstabInitiatorId: null,
+            backstabBonusAp: 0,
+          }).where(eq(alliancesTable.id, alliance.id));
+
+          await logEvent({
+            type: "backstab",
+            fromTeamId: team.id,
+            fromTeamName: team.name,
+            toTeamId: allyId,
+            toTeamName: ally.name,
+            description: `${team.name} attempted a backstab against ${ally.name} but the suspicion task foiled it!`,
+          });
+
+          res.json({
+            correct: true,
+            apEarned,
+            message: `Correct! Earned ${apEarned} AP — but your ally suspected you, so the backstab bonus is lost.`,
+          });
+          return;
+        }
+      }
+    }
+
+    // Check if this was a suspicion task completion
+    if (alliance && alliance.suspicionInProgress && alliance.suspicionInitiatorId === team.id) {
+      const allyId = alliance.team1Id === team.id ? alliance.team2Id : alliance.team1Id;
+      const [ally] = await db.select().from(teamsTable).where(eq(teamsTable.id, allyId)).limit(1);
+
+      if (alliance.backstabInProgress && alliance.backstabInitiatorId === allyId) {
+        // Caught the backstab!
+        await db.update(alliancesTable).set({
+          backstabInProgress: false,
+          backstabInitiatorId: null,
+          backstabBonusAp: 0,
+          suspicionInProgress: false,
+          suspicionInitiatorId: null,
+        }).where(eq(alliancesTable.id, alliance.id));
+
+        await logEvent({
+          type: "suspicion",
+          fromTeamId: team.id,
+          fromTeamName: team.name,
+          toTeamId: allyId,
+          toTeamName: ally?.name ?? "Unknown",
+          description: `${team.name}'s suspicion FOILED ${ally?.name ?? "ally"}'s backstab attempt! The alliance is saved!`,
+        });
+
+        res.json({
+          correct: true,
+          apEarned,
+          message: `Correct! Earned ${apEarned} AP — and your suspicion caught the traitor! Backstab foiled.`,
+        });
+        return;
+      } else {
+        // No backstab was happening — suspicion was unfounded
+        await db.update(alliancesTable).set({
+          suspicionInProgress: false,
+          suspicionInitiatorId: null,
+        }).where(eq(alliancesTable.id, alliance.id));
+
+        res.json({
+          correct: true,
+          apEarned,
+          message: `Correct! Earned ${apEarned} AP — your ally was innocent. No backstab detected.`,
+        });
+        return;
+      }
+    }
+  }
+
+  res.json({ correct: true, apEarned, message: `Correct! You earned ${apEarned} AP.` });
 });
 
 export default router;

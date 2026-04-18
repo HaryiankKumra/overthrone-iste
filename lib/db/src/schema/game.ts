@@ -20,6 +20,11 @@ export const alliancesTable = pgTable("alliances", {
   team2Id: integer("team2_id").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   backstabbedBy: integer("backstabbed_by"),
+  backstabInProgress: boolean("backstab_in_progress").notNull().default(false),
+  backstabInitiatorId: integer("backstab_initiator_id"),
+  backstabBonusAp: integer("backstab_bonus_ap").notNull().default(0),
+  suspicionInProgress: boolean("suspicion_in_progress").notNull().default(false),
+  suspicionInitiatorId: integer("suspicion_initiator_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   dissolvedAt: timestamp("dissolved_at", { withTimezone: true }),
 });

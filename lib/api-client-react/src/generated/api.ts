@@ -25,6 +25,7 @@ import type {
   CreateTaskBody,
   GameEvent,
   GameState,
+  GetPendingAllianceRequests200Item,
   HealthStatus,
   KingdomMapEntry,
   Leaderboard,
@@ -1491,6 +1492,85 @@ export const useUseAllianceCard = <
 > => {
   return useMutation(getUseAllianceCardMutationOptions(options));
 };
+
+/**
+ * @summary Get pending alliance requests for current team
+ */
+export const getGetPendingAllianceRequestsUrl = () => {
+  return `/api/cards/alliance/pending`;
+};
+
+export const getPendingAllianceRequests = async (
+  options?: RequestInit,
+): Promise<GetPendingAllianceRequests200Item[]> => {
+  return customFetch<GetPendingAllianceRequests200Item[]>(
+    getGetPendingAllianceRequestsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetPendingAllianceRequestsQueryKey = () => {
+  return [`/api/cards/alliance/pending`] as const;
+};
+
+export const getGetPendingAllianceRequestsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPendingAllianceRequests>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPendingAllianceRequests>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPendingAllianceRequestsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPendingAllianceRequests>>
+  > = ({ signal }) => getPendingAllianceRequests({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPendingAllianceRequests>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPendingAllianceRequestsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPendingAllianceRequests>>
+>;
+export type GetPendingAllianceRequestsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get pending alliance requests for current team
+ */
+
+export function useGetPendingAllianceRequests<
+  TData = Awaited<ReturnType<typeof getPendingAllianceRequests>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPendingAllianceRequests>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPendingAllianceRequestsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Accept or reject an alliance request

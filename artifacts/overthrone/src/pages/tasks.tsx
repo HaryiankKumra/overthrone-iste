@@ -200,16 +200,30 @@ export default function Tasks() {
             const Icon = typeIcons[task.type as keyof typeof typeIcons] || Brain;
             const isMyActiveTask = myTeam?.activeTaskId === task.id;
 
+            const isCompleted = (task as any).completedByTeam === true;
+
             return (
-              <Card key={task.id} className={`border-border bg-card/80 backdrop-blur p-6 flex flex-col transition-colors group relative overflow-hidden ${isMyActiveTask ? "border-primary/70 shadow-lg shadow-primary/10" : "hover:border-primary/30"}`}>
+              <Card key={task.id} className={`border-border bg-card/80 backdrop-blur p-6 flex flex-col transition-colors group relative overflow-hidden ${
+                isMyActiveTask ? "border-primary/70 shadow-lg shadow-primary/10" :
+                isCompleted ? "border-green-500/30 opacity-60" :
+                "hover:border-primary/30"
+              }`}>
+                {isCompleted && (
+                  <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent pointer-events-none" />
+                )}
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative z-10 flex flex-col h-full">
                   <div className="flex justify-between items-start mb-4">
-                    <div className={`p-2 rounded-lg border ${isMyActiveTask ? "bg-primary/20 border-primary/50" : "bg-secondary border-border"}`}>
-                      <Icon className={`w-6 h-6 ${isMyActiveTask ? "text-primary" : "text-muted-foreground"}`} />
+                    <div className={`p-2 rounded-lg border ${isMyActiveTask ? "bg-primary/20 border-primary/50" : isCompleted ? "bg-green-500/10 border-green-500/30" : "bg-secondary border-border"}`}>
+                      <Icon className={`w-6 h-6 ${isMyActiveTask ? "text-primary" : isCompleted ? "text-green-500" : "text-muted-foreground"}`} />
                     </div>
                     <div className="flex items-center gap-2">
-                      {isMyActiveTask && (
+                      {isCompleted && (
+                        <Badge className="text-[10px] font-mono uppercase tracking-widest bg-green-500/20 text-green-400 border-green-500/30">
+                          Conquered
+                        </Badge>
+                      )}
+                      {isMyActiveTask && !isCompleted && (
                         <Badge className="text-[10px] font-mono uppercase tracking-widest bg-primary/20 text-primary border-primary/30">
                           Active
                         </Badge>
@@ -220,7 +234,7 @@ export default function Tasks() {
                     </div>
                   </div>
 
-                  <h3 className="text-xl font-serif text-white mb-2 line-clamp-1">{task.title}</h3>
+                  <h3 className={`text-xl font-serif mb-2 line-clamp-1 ${isCompleted ? "text-muted-foreground line-through" : "text-white"}`}>{task.title}</h3>
                   <p className="text-sm text-muted-foreground font-mono line-clamp-2 mb-6 flex-1">
                     {task.description}
                   </p>
@@ -228,14 +242,13 @@ export default function Tasks() {
                   <div className="flex items-center justify-between mt-auto pt-4 border-t border-border">
                     <div className="font-mono">
                       <span className="text-muted-foreground text-xs uppercase tracking-wider block">Reward</span>
-                      <span className="text-primary font-bold">{task.apReward} AP</span>
+                      <span className={isCompleted ? "text-green-500 font-bold" : "text-primary font-bold"}>{task.apReward} AP</span>
                     </div>
 
-                    {isMyActiveTask ? (
-                      <Button
-                        onClick={handleOpenActiveTask}
-                        className="font-serif uppercase tracking-widest"
-                      >
+                    {isCompleted ? (
+                      <span className="text-green-500 font-mono text-xs uppercase tracking-widest">✓ Done</span>
+                    ) : isMyActiveTask ? (
+                      <Button onClick={handleOpenActiveTask} className="font-serif uppercase tracking-widest">
                         Solve
                       </Button>
                     ) : (

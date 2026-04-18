@@ -286,6 +286,19 @@ export const UseAllianceCardResponse = zod.object({
 });
 
 /**
+ * @summary Get pending alliance requests for current team
+ */
+export const GetPendingAllianceRequestsResponseItem = zod.object({
+  id: zod.number(),
+  fromTeamId: zod.number(),
+  fromTeamName: zod.string(),
+  createdAt: zod.string(),
+});
+export const GetPendingAllianceRequestsResponse = zod.array(
+  GetPendingAllianceRequestsResponseItem,
+);
+
+/**
  * @summary Accept or reject an alliance request
  */
 export const RespondToAllianceBody = zod.object({
