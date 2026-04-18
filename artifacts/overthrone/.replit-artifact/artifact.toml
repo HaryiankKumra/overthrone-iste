@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Overthrone"
+version = "1.0.0"
+id = "artifacts/overthrone"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21379
+
+[services.development]
+run = "pnpm --filter @workspace/overthrone run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/overthrone", "run", "build" ]
+publicDir = "artifacts/overthrone/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21379"
+BASE_PATH = "/"

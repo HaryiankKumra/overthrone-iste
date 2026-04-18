@@ -1,22 +1,34 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Overthrone game API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Team authentication
+  - name: teams
+    description: Team management
+  - name: game
+    description: Game state and epoch management
+  - name: tasks
+    description: Task solving
+  - name: cards
+    description: Strategic card actions
+  - name: leaderboard
+    description: Leaderboard and stats
+  - name: admin
+    description: Admin panel
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +36,428 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: registerTeam
+      tags: [auth]
+      summary: Register a new team
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterTeamBody"
+      responses:
+        "201":
+          description: Team registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Bad request
+
+  /auth/login:
+    post:
+      operationId: loginTeam
+      tags: [auth]
+      summary: Login as a team
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginTeamBody"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Unauthorized
+
+  /auth/logout:
+    post:
+      operationId: logoutTeam
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current logged in team
+      responses:
+        "200":
+          description: Current team
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+        "401":
+          description: Unauthorized
+
+  /teams:
+    get:
+      operationId: listTeams
+      tags: [teams]
+      summary: List all teams
+      responses:
+        "200":
+          description: List of teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Team"
+
+  /teams/{id}:
+    get:
+      operationId: getTeam
+      tags: [teams]
+      summary: Get a specific team
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Team details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+        "404":
+          description: Team not found
+
+  /game/state:
+    get:
+      operationId: getGameState
+      tags: [game]
+      summary: Get current game state including epoch info
+      responses:
+        "200":
+          description: Game state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameState"
+
+  /game/start:
+    post:
+      operationId: startGame
+      tags: [game]
+      summary: Admin - start the game
+      responses:
+        "200":
+          description: Game started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameState"
+
+  /game/reset:
+    post:
+      operationId: resetGame
+      tags: [game]
+      summary: Admin - reset the game
+      responses:
+        "200":
+          description: Game reset
+
+  /game/advance-epoch:
+    post:
+      operationId: advanceEpoch
+      tags: [game]
+      summary: Admin - force advance to next epoch
+      responses:
+        "200":
+          description: Epoch advanced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameState"
+
+  /tasks:
+    get:
+      operationId: listTasks
+      tags: [tasks]
+      summary: List available tasks
+      parameters:
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+            enum: [easy, medium, hard]
+      responses:
+        "200":
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+
+  /tasks/{id}:
+    get:
+      operationId: getTask
+      tags: [tasks]
+      summary: Get a specific task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+
+  /tasks/{id}/submit:
+    post:
+      operationId: submitTaskAnswer
+      tags: [tasks]
+      summary: Submit an answer for a task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitTaskBody"
+      responses:
+        "200":
+          description: Submission result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskSubmissionResult"
+        "400":
+          description: Bad request
+
+  /cards/task:
+    post:
+      operationId: useTaskCard
+      tags: [cards]
+      summary: Use Task Card to start solving a task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UseTaskCardBody"
+      responses:
+        "200":
+          description: Task card used
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardActionResult"
+        "400":
+          description: Bad request
+
+  /cards/attack:
+    post:
+      operationId: useAttackCard
+      tags: [cards]
+      summary: Use Attack Card to attack another team
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UseAttackCardBody"
+      responses:
+        "200":
+          description: Attack result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttackResult"
+        "400":
+          description: Bad request
+
+  /cards/alliance:
+    post:
+      operationId: useAllianceCard
+      tags: [cards]
+      summary: Use Alliance Card to form/request an alliance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UseAllianceCardBody"
+      responses:
+        "200":
+          description: Alliance result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardActionResult"
+        "400":
+          description: Bad request
+
+  /cards/alliance/respond:
+    post:
+      operationId: respondToAlliance
+      tags: [cards]
+      summary: Accept or reject an alliance request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AllianceResponseBody"
+      responses:
+        "200":
+          description: Response recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardActionResult"
+
+  /cards/backstab:
+    post:
+      operationId: useBackstabCard
+      tags: [cards]
+      summary: Use Backstab Card against alliance partner
+      responses:
+        "200":
+          description: Backstab result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardActionResult"
+        "400":
+          description: Bad request
+
+  /cards/suspicion:
+    post:
+      operationId: useSuspicionCard
+      tags: [cards]
+      summary: Use Suspicion Card to accuse ally of backstab
+      responses:
+        "200":
+          description: Suspicion result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuspicionResult"
+        "400":
+          description: Bad request
+
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [leaderboard]
+      summary: Get ranked leaderboard
+      responses:
+        "200":
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Leaderboard"
+
+  /leaderboard/map:
+    get:
+      operationId: getMapData
+      tags: [leaderboard]
+      summary: Get map/territory visualization data
+      responses:
+        "200":
+          description: Map data for kingdom visualization
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KingdomMapEntry"
+
+  /events/recent:
+    get:
+      operationId: getRecentEvents
+      tags: [leaderboard]
+      summary: Get recent game events (attacks, alliances, task completions)
+      responses:
+        "200":
+          description: Recent events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GameEvent"
+
+  /admin/teams:
+    get:
+      operationId: adminListTeams
+      tags: [admin]
+      summary: Admin - list all teams with full details
+      responses:
+        "200":
+          description: All teams with details
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminTeamDetail"
+
+  /admin/teams/{id}/eliminate:
+    post:
+      operationId: eliminateTeam
+      tags: [admin]
+      summary: Admin - eliminate a team
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Team eliminated
+
+  /admin/tasks:
+    post:
+      operationId: createTask
+      tags: [admin]
+      summary: Admin - create a new task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskBody"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +468,434 @@ components:
       required:
         - status
 
+    RegisterTeamBody:
+      type: object
+      properties:
+        name:
+          type: string
+        password:
+          type: string
+        members:
+          type: array
+          items:
+            type: string
+      required:
+        - name
+        - password
+
+    LoginTeamBody:
+      type: object
+      properties:
+        name:
+          type: string
+        password:
+          type: string
+      required:
+        - name
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        team:
+          $ref: "#/components/schemas/Team"
+        token:
+          type: string
+      required:
+        - team
+        - token
+
+    Team:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        hp:
+          type: integer
+        ap:
+          type: integer
+        members:
+          type: array
+          items:
+            type: string
+        isEliminated:
+          type: boolean
+        allianceId:
+          type: ["integer", "null"]
+        activeTaskId:
+          type: ["integer", "null"]
+        isAdmin:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - hp
+        - ap
+        - members
+        - isEliminated
+        - allianceId
+        - activeTaskId
+        - isAdmin
+        - createdAt
+
+    GameState:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [waiting, active, attack_phase, ended]
+        currentEpoch:
+          type: integer
+        epochStartedAt:
+          type: ["string", "null"]
+        epochEndsAt:
+          type: ["string", "null"]
+        epochDurationSeconds:
+          type: integer
+        totalEpochs:
+          type: integer
+        phase:
+          type: string
+          enum: [task, attack]
+      required:
+        - status
+        - currentEpoch
+        - epochStartedAt
+        - epochEndsAt
+        - epochDurationSeconds
+        - totalEpochs
+        - phase
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [sudoku, math, ctf, algorithm]
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+        apReward:
+          type: integer
+        content:
+          type: string
+        isActive:
+          type: boolean
+      required:
+        - id
+        - title
+        - description
+        - type
+        - difficulty
+        - apReward
+        - content
+        - isActive
+
+    SubmitTaskBody:
+      type: object
+      properties:
+        answer:
+          type: string
+      required:
+        - answer
+
+    TaskSubmissionResult:
+      type: object
+      properties:
+        correct:
+          type: boolean
+        apEarned:
+          type: integer
+        message:
+          type: string
+      required:
+        - correct
+        - apEarned
+        - message
+
+    UseTaskCardBody:
+      type: object
+      properties:
+        taskId:
+          type: integer
+      required:
+        - taskId
+
+    UseAttackCardBody:
+      type: object
+      properties:
+        targetTeamId:
+          type: integer
+        apSpent:
+          type: integer
+        useAI:
+          type: boolean
+      required:
+        - targetTeamId
+        - apSpent
+
+    UseAllianceCardBody:
+      type: object
+      properties:
+        targetTeamId:
+          type: integer
+      required:
+        - targetTeamId
+
+    AllianceResponseBody:
+      type: object
+      properties:
+        requestingTeamId:
+          type: integer
+        accept:
+          type: boolean
+      required:
+        - requestingTeamId
+        - accept
+
+    CardActionResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        teamState:
+          $ref: "#/components/schemas/Team"
+      required:
+        - success
+        - message
+
+    AttackResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        damageDealt:
+          type: integer
+        apSpent:
+          type: integer
+        targetTeamId:
+          type: integer
+        targetTeamName:
+          type: string
+      required:
+        - success
+        - message
+        - damageDealt
+        - apSpent
+        - targetTeamId
+        - targetTeamName
+
+    SuspicionResult:
+      type: object
+      properties:
+        correct:
+          type: boolean
+        message:
+          type: string
+        accusingTeamEliminated:
+          type: boolean
+        accusedTeamEliminated:
+          type: boolean
+      required:
+        - correct
+        - message
+        - accusingTeamEliminated
+        - accusedTeamEliminated
+
+    Leaderboard:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeaderboardEntry"
+        updatedAt:
+          type: string
+      required:
+        - entries
+        - updatedAt
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        teamId:
+          type: integer
+        teamName:
+          type: string
+        hp:
+          type: integer
+        ap:
+          type: integer
+        totalScore:
+          type: integer
+        isEliminated:
+          type: boolean
+        allianceId:
+          type: ["integer", "null"]
+        allianceName:
+          type: ["string", "null"]
+        allianceHP:
+          type: ["integer", "null"]
+        allianceAP:
+          type: ["integer", "null"]
+      required:
+        - rank
+        - teamId
+        - teamName
+        - hp
+        - ap
+        - totalScore
+        - isEliminated
+        - allianceId
+        - allianceName
+        - allianceHP
+        - allianceAP
+
+    KingdomMapEntry:
+      type: object
+      properties:
+        teamId:
+          type: integer
+        teamName:
+          type: string
+        hp:
+          type: integer
+        ap:
+          type: integer
+        isEliminated:
+          type: boolean
+        allianceId:
+          type: ["integer", "null"]
+        x:
+          type: number
+        y:
+          type: number
+        size:
+          type: number
+      required:
+        - teamId
+        - teamName
+        - hp
+        - ap
+        - isEliminated
+        - allianceId
+        - x
+        - y
+        - size
+
+    GameEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [attack, alliance_formed, alliance_broken, backstab, task_completed, team_eliminated, suspicion]
+        fromTeamId:
+          type: ["integer", "null"]
+        fromTeamName:
+          type: ["string", "null"]
+        toTeamId:
+          type: ["integer", "null"]
+        toTeamName:
+          type: ["string", "null"]
+        description:
+          type: string
+        epoch:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - type
+        - fromTeamId
+        - fromTeamName
+        - toTeamId
+        - toTeamName
+        - description
+        - epoch
+        - createdAt
+
+    AdminTeamDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        hp:
+          type: integer
+        ap:
+          type: integer
+        members:
+          type: array
+          items:
+            type: string
+        isEliminated:
+          type: boolean
+        allianceId:
+          type: ["integer", "null"]
+        activeTaskId:
+          type: ["integer", "null"]
+        isAdmin:
+          type: boolean
+        tasksCompleted:
+          type: integer
+        attacksMade:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - hp
+        - ap
+        - members
+        - isEliminated
+        - allianceId
+        - activeTaskId
+        - isAdmin
+        - tasksCompleted
+        - attacksMade
+        - createdAt
+
+    CreateTaskBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [sudoku, math, ctf, algorithm]
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+        content:
+          type: string
+        answer:
+          type: string
+      required:
+        - title
+        - description
+        - type
+        - difficulty
+        - content
+        - answer

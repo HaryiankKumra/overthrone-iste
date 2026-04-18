@@ -15,6 +15,32 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
+- **WebSockets**: ws library for real-time updates
+- **Frontend**: React + Vite + Tailwind CSS + Wouter routing
+- **UI**: Radix UI components, Framer Motion, Recharts
+
+## Project: Overthrone by ISTE
+
+A real-time medieval kingdom warfare competition platform for 3-4 hour events.
+
+### Game Mechanics
+- **Teams**: Register/login, start with 10,000 HP and 0 AP
+- **Epochs**: 15-minute rounds (configurable), 16 total epochs
+- **Cards**: Task, Attack, Alliance, Backstab, Suspicion
+- **Tasks**: Math, CTF, Algorithm, Sudoku puzzles earning AP rewards
+- **Alliances**: Two teams can merge territories and solve tasks simultaneously
+- **Real-time**: WebSocket broadcasts + React Query polling
+
+### Admin Account
+- Team name: `ISTE Admin`
+- Password: `admin123`
+
+### Key Files
+- `lib/api-spec/openapi.yaml` — API contract (source of truth)
+- `lib/db/src/schema/` — Database schema (teams, tasks, game state, alliances, events)
+- `artifacts/api-server/src/routes/` — Express route handlers
+- `artifacts/api-server/src/lib/` — Auth, WebSocket, game event utilities
+- `artifacts/overthrone/src/` — React frontend
 
 ## Key Commands
 
