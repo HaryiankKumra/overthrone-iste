@@ -62,8 +62,9 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center relative overflow-hidden">
-      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1536762391219-c29db42d7653?q=80&w=2940&auto=format&fit=crop')] opacity-10 bg-cover bg-center mix-blend-luminosity"></div>
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_12%,rgba(228,171,79,0.16),transparent_40%),radial-gradient(circle_at_78%_88%,rgba(92,143,194,0.18),transparent_45%),linear-gradient(160deg,rgba(45,26,20,0.2),rgba(8,10,16,0.92))]" />
+      <div className="absolute inset-0 bg-[repeating-linear-gradient(120deg,rgba(255,255,255,0.04),rgba(255,255,255,0.04)_1px,transparent_1px,transparent_18px)] opacity-40" />
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
       
       <div className="z-10 w-full max-w-md p-8 bg-card border border-border rounded-lg shadow-2xl shadow-black/50 backdrop-blur-sm relative">
         <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-background p-4 rounded-full border border-border shadow-xl">
@@ -75,6 +76,9 @@ export default function Login() {
         </h1>
         <p className="text-center text-muted-foreground mt-2 font-mono text-sm uppercase tracking-wide">
           Overthrone
+        </p>
+        <p className="text-center text-muted-foreground/80 mt-1 font-mono text-[10px] uppercase tracking-[0.2em]">
+          Designed by ISTE
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">

@@ -5,6 +5,14 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
+const allowedOrigins = (process.env.CORS_ORIGINS ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET must be set in production.");
+}
 
 app.use(
   pinoHttp({
@@ -25,7 +33,11 @@ app.use(
     },
   }),
 );
-app.use(cors());
+app.use(
+  cors({
+    origin: allowedOrigins.length > 0 ? allowedOrigins : true,
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

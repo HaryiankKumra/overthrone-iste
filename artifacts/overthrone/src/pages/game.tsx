@@ -16,11 +16,13 @@ import {
   useGetPendingAllianceRequests,
   getGetPendingAllianceRequestsQueryKey,
   useRespondToAlliance,
+  useGetRecentEvents,
+  getGetRecentEventsQueryKey,
 } from "@workspace/api-client-react";
 import { useGameWebsocket } from "@/hooks/use-websocket";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Crosshair, Skull, Handshake, Eye, ShieldAlert, Bell } from "lucide-react";
+import { Crosshair, Skull, Handshake, Eye, Bell, ScrollText, Sparkles } from "lucide-react";
 import { KingdomMap } from "@/components/map";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,6 +32,19 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+
+type AttackRecommendation = {
+  targetTeamId: number;
+  targetTeamName: string;
+  score: number;
+  recommendedApSpend: number;
+  rationale: string;
+  alternatives: Array<{
+    targetTeamId: number;
+    targetTeamName: string;
+    score: number;
+  }>;
+};
 
 export default function GameDashboard() {
   const [, setLocation] = useLocation();
@@ -63,9 +78,19 @@ export default function GameDashboard() {
     }
   });
 
+  const { data: recentEvents = [] } = useGetRecentEvents({
+    query: {
+      queryKey: getGetRecentEventsQueryKey(),
+      enabled: !!token,
+      refetchInterval: 5000,
+    },
+  });
+
   const [activeCard, setActiveCard] = useState<string | null>(null);
   const [targetId, setTargetId] = useState<string>("");
   const [apToSpend, setApToSpend] = useState<string>("");
+  const [aiRecommendation, setAiRecommendation] = useState<AttackRecommendation | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const [allianceRequestDialog, setAllianceRequestDialog] = useState<typeof pendingRequests[0] | null>(null);
   const [timeLeft, setTimeLeft] = useState("");
 
@@ -74,6 +99,12 @@ export default function GameDashboard() {
       setAllianceRequestDialog(pendingRequests[0]);
     }
   }, [pendingRequests]);
+
+  useEffect(() => {
+    if (activeCard !== "attack") {
+      setAiRecommendation(null);
+    }
+  }, [activeCard]);
 
   useEffect(() => {
     if (!gameState?.epochEndsAt) return;
@@ -108,6 +139,7 @@ export default function GameDashboard() {
       setActiveCard(null);
       setTargetId("");
       setApToSpend("");
+      setAiRecommendation(null);
       invalidate();
       // For backstab/suspicion: secret task assigned — go to tasks page
       if (res.secretTaskTitle) {
@@ -125,9 +157,50 @@ export default function GameDashboard() {
     } else if (activeCard === "alliance") {
       allianceMutation.mutate({ data: { targetTeamId } }, { onSuccess, onError });
     } else if (activeCard === "backstab") {
-      backstabMutation.mutate({} as any, { onSuccess, onError });
+      backstabMutation.mutate(undefined, { onSuccess, onError });
     } else if (activeCard === "suspicion") {
-      suspicionMutation.mutate({} as any, { onSuccess, onError });
+      suspicionMutation.mutate(undefined, { onSuccess, onError });
+    }
+  };
+
+  const handleGetAttackRecommendation = async () => {
+    if (!token) return;
+
+    setAiLoading(true);
+    try {
+      const response = await fetch("/api/cards/attack/recommendation", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload?.recommendation) {
+        throw new Error(payload?.message || payload?.error || "Unable to get AI recommendation.");
+      }
+
+      const recommendation = payload.recommendation as AttackRecommendation;
+      setAiRecommendation(recommendation);
+      setTargetId(String(recommendation.targetTeamId));
+
+      if (!apToSpend && myTeam?.ap) {
+        const suggestedAp = Math.max(1, Math.min(myTeam.ap, recommendation.recommendedApSpend));
+        setApToSpend(String(suggestedAp));
+      }
+
+      toast({
+        title: "AI Recommendation Ready",
+        description: `Primary target: ${recommendation.targetTeamName}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "AI Recommendation Failed",
+        description: error?.message || "Could not compute a recommendation right now.",
+        variant: "destructive",
+      });
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -153,9 +226,20 @@ export default function GameDashboard() {
 
   const isGameActive = gameState?.status === "active";
   const isAttackPhase = gameState?.phase === "attack";
+  const currentEpoch = gameState?.currentEpoch ?? 0;
   const aliveTeams = teams?.filter(t => !t.isEliminated && t.id !== myTeam?.id) || [];
   const hasAlliance = !!myTeam?.allianceId;
   const isEliminated = !!myTeam?.isEliminated;
+  const hasActiveTask = !!myTeam?.activeTaskId;
+  const hasUsedAttackThisEpoch = recentEvents.some(
+    (event) =>
+      event.type === "attack" &&
+      event.fromTeamId === myTeam?.id &&
+      event.epoch === currentEpoch,
+  );
+  const isBackstabMaskedAsTask = activeCard === "backstab" || backstabMutation.isPending;
+  const taskCardInUse = hasActiveTask || isBackstabMaskedAsTask;
+  const parsedApToSpend = Number(apToSpend);
 
   return (
     <Layout>
@@ -249,17 +333,35 @@ export default function GameDashboard() {
                     Task Phase
                   </Badge>
                 )}
+                {isGameActive && (
+                  <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-widest text-destructive border-destructive/30">
+                    Attack Once/Epoch
+                  </Badge>
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <StrategicCard
+                  title="Task"
+                  icon={ScrollText}
+                  color="text-primary"
+                  description={hasActiveTask ? "Continue active challenge" : "Claim and solve challenges"}
+                  disabled={isEliminated}
+                  onClick={() => setLocation("/tasks")}
+                  inUse={taskCardInUse}
+                  inUseLabel="In Use"
+                  tone="task"
+                />
                 <StrategicCard
                   title="Attack"
                   icon={Crosshair}
                   color="text-destructive"
                   description="Spend AP to deal damage"
-                  locked={!isAttackPhase}
-                  lockedLabel="Attack Phase Only"
-                  disabled={isEliminated || !isGameActive}
+                  disabled={isEliminated || !isGameActive || hasUsedAttackThisEpoch}
+                  disabledLabel={hasUsedAttackThisEpoch ? `Used in Epoch ${currentEpoch}` : undefined}
                   onClick={() => setActiveCard("attack")}
+                  inUse={hasUsedAttackThisEpoch || activeCard === "attack" || attackMutation.isPending}
+                  inUseLabel={hasUsedAttackThisEpoch ? "Used This Epoch" : "Order Active"}
+                  tone="attack"
                 />
                 <StrategicCard
                   title="Alliance"
@@ -269,6 +371,9 @@ export default function GameDashboard() {
                   disabled={isEliminated || !isGameActive || hasAlliance}
                   disabledLabel={hasAlliance ? "Already Allied" : undefined}
                   onClick={() => setActiveCard("alliance")}
+                  inUse={activeCard === "alliance" || allianceMutation.isPending}
+                  inUseLabel="Order Active"
+                  tone="alliance"
                 />
                 <StrategicCard
                   title="Backstab"
@@ -278,6 +383,7 @@ export default function GameDashboard() {
                   disabled={isEliminated || !isGameActive || !hasAlliance}
                   disabledLabel={!hasAlliance ? "No Alliance" : undefined}
                   onClick={() => setActiveCard("backstab")}
+                  tone="backstab"
                 />
                 <StrategicCard
                   title="Suspicion"
@@ -287,6 +393,9 @@ export default function GameDashboard() {
                   disabled={isEliminated || !isGameActive || !hasAlliance}
                   disabledLabel={!hasAlliance ? "No Alliance" : undefined}
                   onClick={() => setActiveCard("suspicion")}
+                  inUse={activeCard === "suspicion" || suspicionMutation.isPending}
+                  inUseLabel="Order Active"
+                  tone="suspicion"
                 />
               </div>
             </div>
@@ -309,7 +418,17 @@ export default function GameDashboard() {
       </div>
 
       {/* Card Action Dialog */}
-      <Dialog open={!!activeCard} onOpenChange={() => { setActiveCard(null); setTargetId(""); setApToSpend(""); }}>
+      <Dialog
+        open={!!activeCard}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActiveCard(null);
+            setTargetId("");
+            setApToSpend("");
+            setAiRecommendation(null);
+          }
+        }}
+      >
         <DialogContent className="bg-card border-border sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-2xl font-serif text-white uppercase tracking-wider text-center flex flex-col items-center gap-4">
@@ -319,7 +438,7 @@ export default function GameDashboard() {
               {activeCard === "suspicion" && <><Eye className="w-12 h-12 text-blue-500" /> Cast Suspicion</>}
             </DialogTitle>
             <DialogDescription className="text-center font-mono text-xs text-muted-foreground uppercase tracking-widest mt-2">
-              {activeCard === "backstab" && "A secret task will be assigned. Solve it to steal your ally's last task AP and break the alliance."}
+              {activeCard === "backstab" && "A secret task will be assigned. Solve it before their Suspicion resolves to steal AP and break the alliance."}
               {activeCard === "suspicion" && "A secret task will be assigned. Solve it to detect if your ally is backstabbing you."}
               {activeCard === "attack" && "Spend your Action Points to deal direct damage to an enemy house."}
               {activeCard === "alliance" && "Propose a mutual pact. The target house will receive a notification to accept or reject."}
@@ -348,6 +467,38 @@ export default function GameDashboard() {
             )}
 
             {activeCard === "attack" && (
+              <div className="space-y-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-primary/40 text-primary hover:bg-primary/10 font-mono uppercase tracking-widest text-xs"
+                  onClick={handleGetAttackRecommendation}
+                  disabled={aiLoading || !isGameActive || isEliminated || hasUsedAttackThisEpoch}
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  {aiLoading ? "Computing..." : "AI Suggest Target"}
+                </Button>
+
+                {aiRecommendation && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/10 p-3 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-mono uppercase tracking-widest">
+                      <span className="text-primary">Recommended: {aiRecommendation.targetTeamName}</span>
+                      <span className="text-muted-foreground">Score {aiRecommendation.score.toFixed(3)}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground font-mono leading-relaxed">
+                      {aiRecommendation.rationale}
+                    </p>
+                    {aiRecommendation.alternatives.length > 0 && (
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                        Alternatives: {aiRecommendation.alternatives.map((alt) => alt.targetTeamName).join(", ")}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeCard === "attack" && (
               <div className="space-y-2">
                 <Label className="font-mono text-xs uppercase text-muted-foreground tracking-widest">Action Points to Spend</Label>
                 <div className="flex items-center gap-4">
@@ -370,7 +521,7 @@ export default function GameDashboard() {
                 {activeCard === "backstab" && (
                   <>
                     <p>• You will receive a <span className="text-purple-400">secret task</span> to solve</p>
-                    <p>• If solved before your ally suspects you, you steal their last-task AP</p>
+                    <p>• If solved before your ally resolves Suspicion, you steal their last-task AP</p>
                     <p>• The alliance is broken once the backstab resolves</p>
                   </>
                 )}
@@ -394,7 +545,8 @@ export default function GameDashboard() {
               onClick={handleCardAction}
               disabled={
                 ((activeCard === "attack" || activeCard === "alliance") && !targetId) ||
-                (activeCard === "attack" && (!apToSpend || parseInt(apToSpend) <= 0 || parseInt(apToSpend) > (myTeam?.ap || 0))) ||
+                (activeCard === "attack" && (!Number.isFinite(parsedApToSpend) || parsedApToSpend <= 0 || parsedApToSpend > (myTeam?.ap || 0))) ||
+                (activeCard === "attack" && hasUsedAttackThisEpoch) ||
                 attackMutation.isPending || allianceMutation.isPending || backstabMutation.isPending || suspicionMutation.isPending
               }
             >
@@ -443,26 +595,40 @@ export default function GameDashboard() {
 
 function StrategicCard({
   title, icon: Icon, color, description,
-  disabled, disabledLabel, locked, lockedLabel, onClick
+  disabled, disabledLabel, locked, lockedLabel, onClick,
+  inUse, inUseLabel, tone,
 }: {
   title: string; icon: any; color: string; description: string;
   disabled?: boolean; disabledLabel?: string; locked?: boolean; lockedLabel?: string; onClick?: () => void;
+  inUse?: boolean; inUseLabel?: string; tone?: "task" | "attack" | "alliance" | "backstab" | "suspicion";
 }) {
   const isDisabled = disabled || locked;
   const label = locked ? lockedLabel : disabledLabel;
+
+  const toneClass: Record<NonNullable<typeof tone>, string> = {
+    task: "from-amber-500/20 via-yellow-400/5 to-transparent",
+    attack: "from-destructive/20 via-destructive/5 to-transparent",
+    alliance: "from-emerald-500/20 via-emerald-400/5 to-transparent",
+    backstab: "from-fuchsia-500/20 via-fuchsia-400/5 to-transparent",
+    suspicion: "from-sky-500/20 via-sky-400/5 to-transparent",
+  };
+
+  const selectedTone = toneClass[tone ?? "attack"];
 
   return (
     <button
       onClick={isDisabled ? undefined : onClick}
       disabled={isDisabled}
-      className={`group relative flex flex-col items-center justify-center p-4 bg-card border rounded-lg transition-all overflow-hidden text-center gap-3 aspect-[3/4] ${
+      className={`group relative flex flex-col items-center justify-center p-4 bg-card border rounded-lg transition-all overflow-hidden text-center gap-3 min-h-[170px] ${
         isDisabled
-          ? "opacity-50 grayscale cursor-not-allowed border-border"
-          : "border-border hover:border-primary/50 cursor-pointer shadow-[0_4px_20px_rgba(0,0,0,0.5)] hover:-translate-y-1"
+          ? "opacity-55 grayscale cursor-not-allowed border-border"
+          : "border-border hover:border-primary/60 cursor-pointer shadow-[0_4px_20px_rgba(0,0,0,0.5)] hover:-translate-y-1"
       }`}
     >
-      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1578308802951-6d7ab7a6db06?q=80&w=600&auto=format&fit=crop')] opacity-10 bg-cover mix-blend-overlay pointer-events-none" />
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80" />
+      <div className="absolute inset-0 bg-[linear-gradient(150deg,rgba(255,255,255,0.07),transparent_28%,rgba(0,0,0,0.2))] pointer-events-none" />
+      <div className="absolute inset-0 bg-[repeating-linear-gradient(132deg,rgba(255,255,255,0.05),rgba(255,255,255,0.05)_1px,transparent_1px,transparent_15px)] opacity-40 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/85" />
+      <div className={`absolute inset-0 bg-gradient-to-br ${selectedTone} opacity-90`} />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
 
       <div className="relative z-10 bg-background/80 p-3 rounded-full border border-border shadow-xl">
@@ -470,10 +636,18 @@ function StrategicCard({
       </div>
       <div className="relative z-10 w-full mt-auto pt-4 border-t border-border/50">
         <div className="font-serif tracking-widest text-white uppercase text-sm drop-shadow-md">{title}</div>
-        <div className="text-[10px] text-muted-foreground font-mono mt-1 uppercase tracking-wider">
+        <div className="text-[10px] text-muted-foreground font-mono mt-1 uppercase tracking-wider leading-snug">
           {label || description}
         </div>
       </div>
+
+      {inUse && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/65 backdrop-blur-[2px] pointer-events-none">
+          <div className="px-3 py-1.5 rounded-md border border-primary/40 bg-primary/20 text-primary font-mono text-[10px] uppercase tracking-widest">
+            {inUseLabel || "In Use"}
+          </div>
+        </div>
+      )}
     </button>
   );
 }

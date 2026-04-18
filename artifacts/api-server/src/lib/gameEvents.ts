@@ -1,5 +1,6 @@
 import { db, gameEventsTable, gameStateTable } from "@workspace/db";
 import { desc } from "drizzle-orm";
+import { broadcast } from "./ws";
 
 export async function logEvent(data: {
   type: string;
@@ -12,6 +13,7 @@ export async function logEvent(data: {
   const [gameState] = await db.select({ currentEpoch: gameStateTable.currentEpoch }).from(gameStateTable).limit(1);
   const epoch = gameState?.currentEpoch ?? 0;
   await db.insert(gameEventsTable).values({ ...data, epoch });
+  broadcast("recentEvents", null);
 }
 
 export async function getRecentEvents(limit = 50) {

@@ -1,0 +1,4 @@
+project_id = "esbmtfhloqjzktpvemjq"
+
+[functions.game-events-hook]
+verify_jwt = false

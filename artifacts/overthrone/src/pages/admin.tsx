@@ -57,7 +57,7 @@ export default function Admin() {
 
   const handleEliminate = (teamId: number) => {
     if (confirm("Eliminate this team forever?")) {
-      eliminateTeamMutation.mutate({ data: { teamId } }, {
+      eliminateTeamMutation.mutate({ id: teamId }, {
         onSuccess: () => {
           toast({ title: "Team Eliminated", description: "The execution was successful." });
           refetchTeams();

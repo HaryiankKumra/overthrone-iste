@@ -44,7 +44,7 @@ export default function Tasks() {
     if (!token) setLocation("/");
   }, [token, setLocation]);
 
-  const { data: tasks, refetch: refetchTasks } = useListTasks({
+  const { data: tasks, refetch: refetchTasks } = useListTasks(undefined, {
     query: {
       queryKey: getListTasksQueryKey(),
       refetchInterval: 10000,
@@ -199,18 +199,29 @@ export default function Tasks() {
           {tasks?.map(task => {
             const Icon = typeIcons[task.type as keyof typeof typeIcons] || Brain;
             const isMyActiveTask = myTeam?.activeTaskId === task.id;
+            const isSelectedTask = selectedTask?.id === task.id;
 
             const isCompleted = (task as any).completedByTeam === true;
 
             return (
               <Card key={task.id} className={`border-border bg-card/80 backdrop-blur p-6 flex flex-col transition-colors group relative overflow-hidden ${
                 isMyActiveTask ? "border-primary/70 shadow-lg shadow-primary/10" :
+                isSelectedTask ? "border-primary/50 shadow-md shadow-primary/10" :
                 isCompleted ? "border-green-500/30 opacity-60" :
                 "hover:border-primary/30"
               }`}>
                 {isCompleted && (
                   <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent pointer-events-none" />
                 )}
+
+                {(isMyActiveTask || isSelectedTask) && !isCompleted && (
+                  <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center bg-black/50 backdrop-blur-[1px]">
+                    <div className="px-3 py-1.5 rounded-md border border-primary/40 bg-primary/20 text-primary font-mono text-[10px] uppercase tracking-widest">
+                      {isMyActiveTask ? "In Use" : "Selected"}
+                    </div>
+                  </div>
+                )}
+
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative z-10 flex flex-col h-full">
                   <div className="flex justify-between items-start mb-4">

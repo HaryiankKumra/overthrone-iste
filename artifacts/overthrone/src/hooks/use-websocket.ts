@@ -7,16 +7,29 @@ export function useGameWebsocket(teamId?: number) {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
+    const wsEnv = import.meta.env.VITE_ENABLE_WEBSOCKET;
+    const websocketEnabled = wsEnv === "true" || (wsEnv == null && import.meta.env.DEV);
+
+    if (!websocketEnabled) {
+      return;
+    }
+
     // Determine the WS URL correctly depending on the environment
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
     const wsUrl = `${protocol}//${host}/ws`;
+    let isUnmounted = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
     const connect = () => {
+      if (isUnmounted) return;
+
       const ws = new WebSocket(wsUrl);
       
       ws.onopen = () => {
-        console.log("WebSocket connected");
+        if (import.meta.env.DEV) {
+          console.log("WebSocket connected");
+        }
       };
 
       ws.onmessage = (event) => {
@@ -49,12 +62,17 @@ export function useGameWebsocket(teamId?: number) {
       };
 
       ws.onclose = () => {
-        console.log("WebSocket disconnected, reconnecting in 5s...");
-        setTimeout(connect, 5000);
+        if (isUnmounted) return;
+        if (import.meta.env.DEV) {
+          console.log("WebSocket disconnected, reconnecting in 5s...");
+        }
+        reconnectTimer = setTimeout(connect, 5000);
       };
 
       ws.onerror = (err) => {
-        console.error("WebSocket error", err);
+        if (import.meta.env.DEV) {
+          console.error("WebSocket error", err);
+        }
       };
 
       wsRef.current = ws;
@@ -63,6 +81,10 @@ export function useGameWebsocket(teamId?: number) {
     connect();
 
     return () => {
+      isUnmounted = true;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
       if (wsRef.current) {
         wsRef.current.close();
       }

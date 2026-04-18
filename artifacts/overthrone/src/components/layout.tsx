@@ -36,6 +36,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Swords className="w-6 h-6" />
             Overthrone
           </h1>
+          <div className="text-center mt-2 text-[10px] font-mono uppercase tracking-[0.24em] text-muted-foreground">
+            Designed by ISTE
+          </div>
           {team && (
             <div className="mt-4 text-center">
               <div className="text-sm text-muted-foreground uppercase tracking-widest font-mono">House</div>
@@ -74,7 +77,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
       <main className="flex-1 relative overflow-x-hidden overflow-y-auto">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1595867160755-6b27072551bd?q=80&w=2938&auto=format&fit=crop')] opacity-[0.03] pointer-events-none mix-blend-overlay"></div>
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_18%_12%,rgba(236,176,85,0.09),transparent_42%),radial-gradient(circle_at_76%_82%,rgba(83,132,181,0.1),transparent_48%),linear-gradient(180deg,transparent,rgba(0,0,0,0.24))]" />
+        <div className="absolute inset-0 pointer-events-none opacity-[0.16] bg-[repeating-linear-gradient(110deg,rgba(255,255,255,0.06),rgba(255,255,255,0.06)_1px,transparent_1px,transparent_18px)]" />
         {children}
       </main>
     </div>

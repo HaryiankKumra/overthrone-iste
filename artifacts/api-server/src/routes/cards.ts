@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { IRouter } from "express";
-import { db, teamsTable, tasksTable, alliancesTable, allianceRequestsTable } from "@workspace/db";
+import { db, teamsTable, tasksTable, alliancesTable, allianceRequestsTable, gameStateTable, gameEventsTable } from "@workspace/db";
 import { eq, and, notInArray, ne } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { UseTaskCardBody, UseAttackCardBody, UseAllianceCardBody, RespondToAllianceBody } from "@workspace/api-zod";
@@ -75,8 +75,31 @@ router.post("/cards/attack", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  const [gameState] = await db.select().from(gameStateTable).limit(1);
+  if (!gameState || gameState.status !== "active" || gameState.currentEpoch <= 0) {
+    res.status(400).json({ success: false, message: "The war is not active yet. Start the game first." });
+    return;
+  }
+
   const [attacker] = await db.select().from(teamsTable).where(eq(teamsTable.id, req.team!.id)).limit(1);
   if (!attacker || attacker.isEliminated) { res.status(400).json({ success: false, message: "Cannot attack — your kingdom has fallen." }); return; }
+
+  const [alreadyAttackedThisEpoch] = await db
+    .select({ id: gameEventsTable.id })
+    .from(gameEventsTable)
+    .where(
+      and(
+        eq(gameEventsTable.type, "attack"),
+        eq(gameEventsTable.fromTeamId, attacker.id),
+        eq(gameEventsTable.epoch, gameState.currentEpoch),
+      ),
+    )
+    .limit(1);
+
+  if (alreadyAttackedThisEpoch) {
+    res.status(400).json({ success: false, message: `Attack card already used in epoch ${gameState.currentEpoch}. Wait for the next epoch.` });
+    return;
+  }
 
   const [target] = await db.select().from(teamsTable).where(eq(teamsTable.id, body.data.targetTeamId)).limit(1);
   if (!target || target.isEliminated) { res.status(400).json({ success: false, message: "Target not found or already eliminated." }); return; }
@@ -115,6 +138,94 @@ router.post("/cards/attack", requireAuth, async (req, res): Promise<void> => {
     success: true,
     message: wasEliminated ? `${target.name} has been destroyed!` : `Attack successful! Dealt ${damageDealt} damage to ${target.name}.`,
     damageDealt, apSpent, targetTeamId: target.id, targetTeamName: target.name,
+  });
+});
+
+router.get("/cards/attack/recommendation", requireAuth, async (req, res): Promise<void> => {
+  const [attacker] = await db.select().from(teamsTable).where(eq(teamsTable.id, req.team!.id)).limit(1);
+  if (!attacker || attacker.isEliminated) {
+    res.status(400).json({ success: false, message: "Cannot generate recommendation for an eliminated team." });
+    return;
+  }
+
+  if (attacker.ap <= 0) {
+    res.status(400).json({ success: false, message: "No AP available. Earn AP from tasks before attacking." });
+    return;
+  }
+
+  const teams = await db.select({
+    id: teamsTable.id,
+    name: teamsTable.name,
+    hp: teamsTable.hp,
+    ap: teamsTable.ap,
+    isEliminated: teamsTable.isEliminated,
+    allianceId: teamsTable.allianceId,
+  }).from(teamsTable);
+
+  const candidates = teams.filter((team) => {
+    if (team.isEliminated) return false;
+    if (team.id === attacker.id) return false;
+    if (attacker.allianceId != null && attacker.allianceId === team.allianceId) return false;
+    return true;
+  });
+
+  if (candidates.length === 0) {
+    res.status(404).json({ success: false, message: "No valid attack targets are available right now." });
+    return;
+  }
+
+  const maxHp = Math.max(...candidates.map((team) => Math.max(team.hp, 1)), 1);
+  const maxAp = Math.max(...candidates.map((team) => team.ap), 1);
+  const maxPower = Math.max(...candidates.map((team) => team.hp + team.ap), 1);
+
+  const scored = candidates
+    .map((team) => {
+      const weakness = 1 - team.hp / maxHp;
+      const threat = team.ap / maxAp;
+      const boardPower = (team.hp + team.ap) / maxPower;
+      const allianceBonus = team.allianceId != null ? 0.12 : 0;
+      const finishBonus = team.hp <= 2500 ? 0.08 : 0;
+
+      const score = weakness * 0.38 + threat * 0.32 + boardPower * 0.22 + allianceBonus + finishBonus;
+
+      const reasons: string[] = [];
+      if (team.hp <= 2500) reasons.push("low HP and can be pressured quickly");
+      if (team.ap >= maxAp * 0.75 && team.ap > 0) reasons.push("high AP threat");
+      if (team.allianceId != null) reasons.push("part of an active alliance");
+      if (reasons.length === 0) reasons.push("best overall tactical pressure point");
+
+      return { team, score, reasons };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const best = scored[0];
+  const recommendedApSpend = Math.max(
+    1,
+    Math.min(
+      attacker.ap,
+      Math.max(
+        100,
+        Math.ceil(attacker.ap * 0.35),
+        Math.ceil(best.team.hp * 0.25),
+      ),
+    ),
+  );
+
+  res.json({
+    success: true,
+    message: `AI recommends targeting ${best.team.name}.`,
+    recommendation: {
+      targetTeamId: best.team.id,
+      targetTeamName: best.team.name,
+      score: Number(best.score.toFixed(3)),
+      recommendedApSpend,
+      rationale: best.reasons.join("; "),
+      alternatives: scored.slice(1, 4).map((candidate) => ({
+        targetTeamId: candidate.team.id,
+        targetTeamName: candidate.team.name,
+        score: Number(candidate.score.toFixed(3)),
+      })),
+    },
   });
 });
 
@@ -233,7 +344,7 @@ router.post("/cards/alliance/respond", requireAuth, async (req, res): Promise<vo
 // ─── Backstab Card ────────────────────────────────────────────────────────────
 // Flow: Team A clicks Backstab → gets a secret random task → solves it →
 //       steals ally's lastCompletedTaskAp and breaks alliance.
-//       If ally used Suspicion before backstab resolves, backstab is foiled.
+//       If ally solves Suspicion before backstab resolves, backstab is foiled.
 
 router.post("/cards/backstab", requireAuth, async (req, res): Promise<void> => {
   const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, req.team!.id)).limit(1);
@@ -270,7 +381,7 @@ router.post("/cards/backstab", requireAuth, async (req, res): Promise<void> => {
 
   res.json({
     success: true,
-    message: `Betrayal initiated. Solve the secret task to complete your backstab against ${ally.name}. If they suspect you first, it will be foiled!`,
+    message: `Betrayal initiated. Solve the secret task to complete your backstab against ${ally.name}. If they solve Suspicion first, it will be foiled!`,
     secretTaskTitle: secretTask.title,
     teamState: formatTeamState(t),
   });

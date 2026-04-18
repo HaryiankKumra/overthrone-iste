@@ -44,6 +44,14 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
-# Replit
+# Local runtime caches
 .cache/
 .local/
+
+# Environment secrets
+.env
+.env.local
+.env.production
+.env.vercel
+!.env.example
+!.env.vercel.example

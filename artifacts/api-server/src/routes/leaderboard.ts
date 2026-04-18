@@ -58,14 +58,32 @@ router.get("/leaderboard", async (_req, res): Promise<void> => {
 router.get("/leaderboard/map", async (_req, res): Promise<void> => {
   const teams = await db.select().from(teamsTable).orderBy(teamsTable.id);
 
-  const gridSize = Math.ceil(Math.sqrt(teams.length));
-  const entries = teams.map((team, i) => {
-    const col = i % gridSize;
-    const row = Math.floor(i / gridSize);
-    const x = (col / (gridSize - 1 || 1)) * 800 + 100;
-    const y = (row / (Math.ceil(teams.length / gridSize) - 1 || 1)) * 500 + 100;
-    const maxHp = 10000;
-    const size = 30 + (team.hp / maxHp) * 70;
+  const activeTeams = teams
+    .filter((team) => !team.isEliminated)
+    .sort((a, b) => b.hp - a.hp);
+  const eliminatedTeams = teams.filter((team) => team.isEliminated);
+  const maxHp = Math.max(...activeTeams.map((team) => Math.max(team.hp, 1)), 1);
+
+  const columnCount = Math.max(1, Math.min(4, Math.ceil(Math.sqrt(Math.max(activeTeams.length, 1)))));
+  const rowCount = Math.max(1, Math.ceil(activeTeams.length / columnCount));
+  const xStart = 13;
+  const yStart = 18;
+  const usableWidth = 74;
+  const usableHeight = 58;
+  const columnStep = columnCount > 1 ? usableWidth / (columnCount - 1) : 0;
+  const rowStep = rowCount > 1 ? usableHeight / (rowCount - 1) : 0;
+
+  const activeEntries = activeTeams.map((team, index) => {
+    const row = Math.floor(index / columnCount);
+    const col = index % columnCount;
+    const jitterSeed = team.id * 9301 + 49297;
+    const jitterX = ((jitterSeed % 7) - 3) * 0.55;
+    const jitterY = (((jitterSeed >> 3) % 7) - 3) * 0.45;
+    const x = Math.max(8, Math.min(92, xStart + col * columnStep + jitterX));
+    const y = Math.max(10, Math.min(84, yStart + row * rowStep + jitterY));
+
+    const normalizedHp = Math.max(team.hp, 0) / maxHp;
+    const size = 12 + Math.sqrt(normalizedHp) * 22;
 
     return {
       teamId: team.id,
@@ -79,6 +97,26 @@ router.get("/leaderboard/map", async (_req, res): Promise<void> => {
       size,
     };
   });
+
+  const eliminatedEntries = eliminatedTeams.map((team, index) => {
+    const count = Math.max(eliminatedTeams.length, 1);
+    const x = 8 + ((index + 0.5) * 84) / count;
+    const y = 92;
+
+    return {
+      teamId: team.id,
+      teamName: team.name,
+      hp: team.hp,
+      ap: team.ap,
+      isEliminated: team.isEliminated,
+      allianceId: team.allianceId ?? null,
+      x,
+      y,
+      size: 8,
+    };
+  });
+
+  const entries = [...activeEntries, ...eliminatedEntries];
 
   res.json(entries);
 });
