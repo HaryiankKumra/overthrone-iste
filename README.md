@@ -21,3 +21,4 @@ Real-time strategy game platform for ISTE events.
 - SQL files: supabase/sql
 - Edge functions: supabase/functions
 - Deployment guide: DEPLOY_VERCEL_SUPABASE.md
+- Railway deployment guide: DEPLOY_RAILWAY.md
