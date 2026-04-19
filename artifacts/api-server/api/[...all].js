@@ -1,4 +1,4 @@
-import app from "../src/app.ts";
+import app from "../dist/app.mjs";
 
 const appHandler = /** @type {(req: any, res: any) => unknown} */ (app);
 
