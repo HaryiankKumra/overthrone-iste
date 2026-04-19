@@ -1,13 +1,10 @@
 Supabase setup for Overthrone
 
-1) Link your project
+1) Link and authenticate
 - supabase login
-- supabase link --project-ref esbmtfhloqjzktpvemjq
 
-2) Apply SQL files
-- psql "$DATABASE_URL" -f supabase/sql/001_schema.sql
-- psql "$DATABASE_URL" -f supabase/sql/002_seed.sql
-- psql "$DATABASE_URL" -f supabase/sql/003_post_setup.sql
+2) Apply SQL files (creates tables and seed data)
+- ./scripts/supabase-apply-sql.sh
 
 3) Configure edge function secret
 - supabase secrets set EDGE_SHARED_SECRET=your-long-random-secret

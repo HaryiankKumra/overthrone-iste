@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ -z "${DATABASE_URL:-}" ]]; then
-  echo "DATABASE_URL is required"
+if ! command -v supabase >/dev/null 2>&1; then
+  echo "Supabase CLI is required. Install it first."
   exit 1
 fi
 
-echo "Applying supabase/sql/001_schema.sql"
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/sql/001_schema.sql
+PROJECT_REF="${SUPABASE_PROJECT_REF:-esbmtfhloqjzktpvemjq}"
+MIGRATION_FILE="supabase/migrations/202604190001_init_schema.sql"
 
-echo "Applying supabase/sql/002_seed.sql"
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/sql/002_seed.sql
+mkdir -p supabase/migrations
+cat supabase/sql/001_schema.sql supabase/sql/002_seed.sql supabase/sql/003_post_setup.sql > "$MIGRATION_FILE"
 
-echo "Applying supabase/sql/003_post_setup.sql"
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/sql/003_post_setup.sql
+echo "Linking Supabase project: $PROJECT_REF"
+supabase link --project-ref "$PROJECT_REF"
+
+echo "Pushing migrations to remote database"
+supabase db push --linked
 
 echo "Done."
