@@ -1,10 +1,9 @@
 import { Router } from "express";
-import type { IRouter } from "express";
 import { db, teamsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { GetTeamParams } from "@workspace/api-zod";
 
-const router: IRouter = Router();
+const router = Router();
 
 function formatTeam(team: typeof teamsTable.$inferSelect) {
   return {

@@ -1,5 +1,4 @@
 import { Router } from "express";
-import type { IRouter } from "express";
 import { db, tasksTable, teamsTable, alliancesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth.js";
@@ -8,7 +7,7 @@ import { broadcast } from "../lib/ws.js";
 import { logEvent } from "../lib/gameEvents.js";
 import { verifyToken } from "../lib/auth.js";
 
-const router: IRouter = Router();
+const router = Router();
 
 function formatTask(task: typeof tasksTable.$inferSelect, hideAnswer = true, completedByTeam = false) {
   return {

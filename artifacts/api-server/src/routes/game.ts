@@ -1,12 +1,11 @@
 import { Router } from "express";
-import type { IRouter } from "express";
 import { db, gameStateTable, teamsTable } from "@workspace/db";
 import { requireAdmin } from "../middlewares/auth.js";
 import { broadcast } from "../lib/ws.js";
 import { logEvent } from "../lib/gameEvents.js";
 import { desc } from "drizzle-orm";
 
-const router: IRouter = Router();
+const router = Router();
 
 async function getOrCreateGameState() {
   const [state] = await db.select().from(gameStateTable).limit(1);

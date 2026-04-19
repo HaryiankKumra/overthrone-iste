@@ -1,9 +1,8 @@
 import { Router } from "express";
-import type { IRouter } from "express";
 import { db, teamsTable, alliancesTable, gameEventsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 
-const router: IRouter = Router();
+const router = Router();
 
 router.get("/leaderboard", async (_req, res): Promise<void> => {
   const teams = await db.select().from(teamsTable).orderBy(teamsTable.id);
