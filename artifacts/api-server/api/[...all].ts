@@ -1,5 +1,7 @@
 import app from "../src/app.js";
 
+const appHandler = app as unknown as (req: any, res: any) => unknown;
+
 export default function handler(req: any, res: any) {
-  return app(req, res);
+  return appHandler(req, res);
 }
