@@ -1,5 +1,4 @@
 import { Router } from "express";
-import type { IRouter } from "express";
 import { db, teamsTable, tasksTable, alliancesTable, allianceRequestsTable, gameStateTable, gameEventsTable } from "@workspace/db";
 import { eq, and, notInArray, ne } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth.js";
@@ -7,7 +6,7 @@ import { UseTaskCardBody, UseAttackCardBody, UseAllianceCardBody, RespondToAllia
 import { broadcast } from "../lib/ws.js";
 import { logEvent } from "../lib/gameEvents.js";
 
-const router: IRouter = Router();
+const router = Router();
 
 function formatTeamState(t: typeof teamsTable.$inferSelect) {
   return {

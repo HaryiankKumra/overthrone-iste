@@ -1,5 +1,4 @@
 import { Router } from "express";
-import type { IRouter } from "express";
 import { db, teamsTable, tasksTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/auth.js";
@@ -7,7 +6,7 @@ import { EliminateTeamParams, CreateTaskBody } from "@workspace/api-zod";
 import { logEvent } from "../lib/gameEvents.js";
 import { broadcast } from "../lib/ws.js";
 
-const router: IRouter = Router();
+const router = Router();
 
 router.get("/admin/teams", requireAdmin, async (_req, res): Promise<void> => {
   const teams = await db.select().from(teamsTable).orderBy(teamsTable.id);
