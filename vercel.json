@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @workspace/overthrone run build && rm -rf public && mkdir -p public && cp -R artifacts/overthrone/dist/public/. public/",
+  "buildCommand": "pnpm --filter @workspace/overthrone run build && rm -rf public && mkdir -p public && SRC=artifacts/overthrone/dist/public && [ -d dist/public ] && SRC=dist/public; cp -R \"$SRC\"/. public/",
   "outputDirectory": "public",
   "functions": {
     "api/[...all].ts": {
