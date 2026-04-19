@@ -1,9 +1,9 @@
 import { Router } from "express";
 import type { IRouter } from "express";
 import { db, gameStateTable, teamsTable } from "@workspace/db";
-import { requireAdmin } from "../middlewares/auth";
-import { broadcast } from "../lib/ws";
-import { logEvent } from "../lib/gameEvents";
+import { requireAdmin } from "../middlewares/auth.js";
+import { broadcast } from "../lib/ws.js";
+import { logEvent } from "../lib/gameEvents.js";
 import { desc } from "drizzle-orm";
 
 const router: IRouter = Router();

@@ -2,8 +2,8 @@ import { Router } from "express";
 import type { IRouter } from "express";
 import { db, teamsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { hashPassword, verifyPassword, generateToken } from "../lib/auth";
-import { requireAuth } from "../middlewares/auth";
+import { hashPassword, verifyPassword, generateToken } from "../lib/auth.js";
+import { requireAuth } from "../middlewares/auth.js";
 import { RegisterTeamBody, LoginTeamBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();

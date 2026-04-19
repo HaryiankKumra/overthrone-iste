@@ -2,10 +2,10 @@ import { Router } from "express";
 import type { IRouter } from "express";
 import { db, teamsTable, tasksTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { requireAdmin } from "../middlewares/auth";
+import { requireAdmin } from "../middlewares/auth.js";
 import { EliminateTeamParams, CreateTaskBody } from "@workspace/api-zod";
-import { logEvent } from "../lib/gameEvents";
-import { broadcast } from "../lib/ws";
+import { logEvent } from "../lib/gameEvents.js";
+import { broadcast } from "../lib/ws.js";
 
 const router: IRouter = Router();
 
