@@ -2,10 +2,10 @@ import { Router } from "express";
 import type { IRouter } from "express";
 import { db, teamsTable, tasksTable, alliancesTable, allianceRequestsTable, gameStateTable, gameEventsTable } from "@workspace/db";
 import { eq, and, notInArray, ne } from "drizzle-orm";
-import { requireAuth } from "../middlewares/auth.js";
+import { requireAuth } from "../middlewares/auth";
 import { UseTaskCardBody, UseAttackCardBody, UseAllianceCardBody, RespondToAllianceBody } from "@workspace/api-zod";
-import { broadcast } from "../lib/ws.js";
-import { logEvent } from "../lib/gameEvents.js";
+import { broadcast } from "../lib/ws";
+import { logEvent } from "../lib/gameEvents";
 
 const router: IRouter = Router();
 

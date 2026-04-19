@@ -14,14 +14,11 @@
 ## 2) Vercel Project Setup
 
 1. Import this repository into Vercel.
-2. Framework preset: Vite.
+2. Framework preset: Other.
 3. Root directory: repository root.
 4. Build command: `pnpm --filter @workspace/overthrone run build`
 5. Output directory: `artifacts/overthrone/dist/public`
 6. Install command: `pnpm install --frozen-lockfile`
-
-If Vercel shows `No entrypoint found in output directory`, it is running in Node.js mode.
-Switch Framework Preset back to Vite (or clear overridden build settings) and redeploy.
 
 ## 3) Environment Variables in Vercel
 

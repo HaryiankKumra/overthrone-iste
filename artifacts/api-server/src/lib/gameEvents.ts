@@ -1,6 +1,6 @@
 import { db, gameEventsTable, gameStateTable } from "@workspace/db";
 import { desc } from "drizzle-orm";
-import { broadcast } from "./ws.js";
+import { broadcast } from "./ws";
 
 export async function logEvent(data: {
   type: string;

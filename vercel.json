@@ -1,7 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "vite",
-  "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm --filter @workspace/overthrone run build",
   "outputDirectory": "artifacts/overthrone/dist/public",
   "functions": {
@@ -11,6 +9,10 @@
     }
   },
   "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/[...all].ts"
+    },
     {
       "handle": "filesystem"
     },
