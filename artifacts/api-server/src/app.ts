@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import { pinoHttp } from "pino-http";
 import path from "node:path";
@@ -86,5 +86,14 @@ if (frontendDistDir) {
 
   logger.info({ frontendDistDir }, "Serving frontend static assets");
 }
+
+// JSON error handler — must be last, after all routes
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  logger.error({ err }, "Unhandled error");
+  const status = (err as { status?: number; statusCode?: number }).status
+    ?? (err as { status?: number; statusCode?: number }).statusCode
+    ?? 500;
+  res.status(status).json({ error: err.message ?? "Internal server error" });
+});
 
 export default app;
