@@ -2,8 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @workspace/overthrone run build",
-  "outputDirectory": "artifacts/overthrone/dist/public",
+  "buildCommand": "pnpm --filter @workspace/overthrone run build && rm -rf public && mkdir -p public && cp -R artifacts/overthrone/dist/public/. public/",
+  "outputDirectory": "public",
   "functions": {
     "api/[...all].ts": {
       "runtime": "nodejs20.x",
